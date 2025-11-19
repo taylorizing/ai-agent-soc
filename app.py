@@ -3,6 +3,7 @@ import io
 import os
 import pandas as pd
 import json
+import base64
 
 # Try to import Databricks SDK
 try:
@@ -255,15 +256,24 @@ def parse_document_with_ai(file_path, workspace_client):
             return None, "Databricks SDK not available"
         
         # Get warehouse ID from environment or use default
-        # You can set this in your app configuration
         warehouse_id = os.environ.get("DATABRICKS_WAREHOUSE_ID")
         
         if not warehouse_id:
             return None, "SQL Warehouse ID not configured. Please set DATABRICKS_WAREHOUSE_ID environment variable."
         
+        # Read the file content from Unity Catalog volume
+        try:
+            file_content = workspace_client.files.download(file_path).contents.read()
+        except Exception as e:
+            return None, f"Failed to read file from Unity Catalog: {e}"
+        
+        # Convert to base64 for SQL query (ai_parse_document expects binary)
+        file_content_b64 = base64.b64encode(file_content).decode('utf-8')
+        
         # Use Databricks AI parse_document function via SQL execution
+        # Pass the binary content using from_base64
         query = f"""
-        SELECT ai_parse_document('{file_path}') as parsed_content
+        SELECT ai_parse_document(from_base64('{file_content_b64}')) as parsed_content
         """
         
         # Execute SQL query using the workspace client
@@ -272,7 +282,7 @@ def parse_document_with_ai(file_path, workspace_client):
         statement = workspace_client.statement_execution.execute_statement(
             warehouse_id=warehouse_id,
             statement=query,
-            wait_timeout="30s"
+            wait_timeout="50s"
         )
         
         # Wait for completion
@@ -481,7 +491,7 @@ if uploaded_file and upload_volume_path:
                     supported_formats = ['pdf', 'png', 'jpg', 'jpeg', 'tiff', 'bmp']
                     
                     if file_extension in supported_formats:
-                        with st.spinner("Parsing document with Databricks AI..."):
+                        with st.spinner("Reading file and parsing document with Databricks AI... (this may take up to 50 seconds)"):
                             try:
                                 parsed_result, parse_error = parse_document_with_ai(file_path, w)
                                 
