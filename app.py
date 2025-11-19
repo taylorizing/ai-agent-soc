@@ -81,11 +81,23 @@ subfolder = st.text_input(
 st.divider()
 
 if uploaded_file and upload_volume_path:
-    # Construct full file path
-    if subfolder:
-        file_path = f"/Volumes/{upload_volume_path}/{subfolder}/{uploaded_file.name}"
-    else:
-        file_path = f"/Volumes/{upload_volume_path}/{uploaded_file.name}"
+    # Parse the volume path (catalog.schema.volume_name)
+    try:
+        parts = upload_volume_path.split('.')
+        if len(parts) != 3:
+            st.error("❌ Invalid volume path format. Please use: catalog.schema.volume_name")
+            st.stop()
+        
+        catalog, schema, volume_name = parts
+        
+        # Construct full file path with proper Unity Catalog format
+        if subfolder:
+            file_path = f"/Volumes/{catalog}/{schema}/{volume_name}/{subfolder}/{uploaded_file.name}"
+        else:
+            file_path = f"/Volumes/{catalog}/{schema}/{volume_name}/{uploaded_file.name}"
+    except Exception as e:
+        st.error(f"❌ Error parsing volume path: {e}")
+        st.stop()
     
     # Display where file will be uploaded
     st.info(f"📍 **Destination:** `{file_path}`")
