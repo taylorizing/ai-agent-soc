@@ -18,26 +18,235 @@ st.set_page_config(
     layout="wide"
 )
 
-# Load and inject custom CSS from style_guide.css
+# Load and inject custom CSS matching CLA Connect style guide
 def load_css():
-    """Load custom CSS from style_guide.css file"""
-    css_file = os.path.join(os.path.dirname(__file__), "style_guide.css")
-    try:
-        with open(css_file, "r") as f:
-            css_content = f.read()
-        st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
-    except FileNotFoundError:
-        pass  # Silently fail if CSS file not found
+    """Load custom CSS matching CLA Connect design"""
+    cla_css = """
+    <style>
+        /* Import Roboto font */
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+        
+        /* Global styles matching CLA Connect */
+        .stApp {
+            background-color: #ffffff;
+            font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+        }
+        
+        /* Main content area */
+        .main .block-container {
+            padding: 2rem 3rem;
+            max-width: 1200px;
+        }
+        
+        /* Headers - CLA teal color */
+        h1, h2, h3 {
+            color: #004d40 !important;
+            font-family: 'Roboto', sans-serif !important;
+            font-weight: 700 !important;
+        }
+        
+        h1 {
+            font-size: 2.5rem !important;
+            margin-bottom: 1rem !important;
+            padding-bottom: 0.5rem !important;
+            border-bottom: 3px solid #004d40 !important;
+        }
+        
+        h2 {
+            font-size: 2rem !important;
+            margin-top: 2rem !important;
+            margin-bottom: 1rem !important;
+        }
+        
+        h3 {
+            font-size: 1.5rem !important;
+            margin-bottom: 0.75rem !important;
+        }
+        
+        /* Paragraph text */
+        p, .stMarkdown {
+            color: #333333;
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+        
+        /* Buttons - CLA teal primary button */
+        .stButton > button {
+            background-color: #004d40 !important;
+            color: #ffffff !important;
+            border: none !important;
+            padding: 0.75rem 2rem !important;
+            font-size: 1rem !important;
+            font-weight: 500 !important;
+            border-radius: 4px !important;
+            transition: background-color 0.3s ease !important;
+            font-family: 'Roboto', sans-serif !important;
+        }
+        
+        .stButton > button:hover {
+            background-color: #00332e !important;
+            border: none !important;
+        }
+        
+        .stButton > button:focus {
+            background-color: #00332e !important;
+            box-shadow: 0 0 0 0.2rem rgba(0, 77, 64, 0.5) !important;
+        }
+        
+        /* File uploader */
+        .stFileUploader {
+            background-color: #f5f5f5;
+            border: 2px dashed #004d40;
+            border-radius: 8px;
+            padding: 1.5rem;
+        }
+        
+        .stFileUploader label {
+            color: #004d40 !important;
+            font-weight: 500 !important;
+        }
+        
+        /* Text inputs */
+        .stTextInput > div > div > input {
+            border: 2px solid #e0e0e0 !important;
+            border-radius: 4px !important;
+            padding: 0.75rem !important;
+            font-family: 'Roboto', sans-serif !important;
+            transition: border-color 0.3s ease !important;
+        }
+        
+        .stTextInput > div > div > input:focus {
+            border-color: #004d40 !important;
+            box-shadow: 0 0 0 0.2rem rgba(0, 77, 64, 0.1) !important;
+        }
+        
+        .stTextInput > label {
+            color: #004d40 !important;
+            font-weight: 500 !important;
+        }
+        
+        /* Metrics */
+        .stMetric {
+            background-color: #f5f5f5;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #004d40;
+        }
+        
+        .stMetric label {
+            color: #757575 !important;
+            font-size: 0.875rem !important;
+            font-weight: 500 !important;
+        }
+        
+        .stMetric [data-testid="stMetricValue"] {
+            color: #004d40 !important;
+            font-size: 1.5rem !important;
+            font-weight: 700 !important;
+        }
+        
+        /* Info, Warning, Success, Error boxes */
+        .stAlert {
+            border-radius: 8px !important;
+            border-left: 4px solid;
+        }
+        
+        /* Info boxes */
+        div[data-baseweb="notification"] {
+            border-radius: 8px !important;
+        }
+        
+        .stInfo {
+            background-color: #e8f4f8 !important;
+            border-left-color: #004d40 !important;
+        }
+        
+        .stSuccess {
+            background-color: #e8f5e9 !important;
+            border-left-color: #2e7d32 !important;
+        }
+        
+        .stWarning {
+            background-color: #fff3e0 !important;
+            border-left-color: #f57c00 !important;
+        }
+        
+        .stError {
+            background-color: #ffebee !important;
+            border-left-color: #c62828 !important;
+        }
+        
+        /* Divider */
+        hr {
+            border: none;
+            border-top: 2px solid #e0e0e0;
+            margin: 2rem 0;
+        }
+        
+        /* Expander */
+        .streamlit-expanderHeader {
+            background-color: #f5f5f5 !important;
+            border-radius: 4px !important;
+            color: #004d40 !important;
+            font-weight: 500 !important;
+        }
+        
+        .streamlit-expanderHeader:hover {
+            background-color: #eeeeee !important;
+        }
+        
+        /* Columns */
+        [data-testid="column"] {
+            padding: 0.5rem;
+        }
+        
+        /* Spinner */
+        .stSpinner > div {
+            border-top-color: #004d40 !important;
+        }
+        
+        /* Hide Streamlit branding */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .main .block-container {
+                padding: 1rem;
+            }
+            
+            h1 {
+                font-size: 2rem !important;
+            }
+            
+            h2 {
+                font-size: 1.5rem !important;
+            }
+            
+            .stButton > button {
+                padding: 0.5rem 1rem !important;
+                font-size: 0.875rem !important;
+            }
+        }
+    </style>
+    """
+    st.markdown(cla_css, unsafe_allow_html=True)
 
 # Load custom styles
 load_css()
 
 # Title and Description
-st.title("🚀 Databricks Unity Catalog File Upload")
 st.markdown("""
-Upload files from your local machine to Unity Catalog volumes using the Databricks SDK.
-This app uses your current Databricks credentials to securely upload files.
-""")
+    <div style="margin-bottom: 2rem;">
+        <h1 style="color: #004d40; font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem; border-bottom: 3px solid #004d40; padding-bottom: 0.5rem;">
+            Databricks Unity Catalog File Upload
+        </h1>
+        <p style="color: #757575; font-size: 1.1rem; margin-top: 1rem; line-height: 1.6;">
+            Upload files from your local machine to Unity Catalog volumes using the Databricks SDK.
+            This app uses your current Databricks credentials to securely upload files.
+        </p>
+    </div>
+""", unsafe_allow_html=True)
 
 # Display SDK availability status
 if not DATABRICKS_SDK_AVAILABLE:
@@ -68,13 +277,18 @@ st.subheader("🎯 Specify Destination Path")
 
 # Provide example and help text
 st.markdown("""
-Enter the Unity Catalog volume path in the format: `catalog.schema.volume_name`
-
-**Examples:**
-- `main.default.my_volume`
-- `users.jason_taylor.agent_app_uploads`
-- `prod.data.raw_files`
-""")
+<div style="background-color: #f5f5f5; padding: 1rem; border-radius: 8px; border-left: 4px solid #004d40; margin-bottom: 1rem;">
+    <p style="margin: 0; color: #333333;">
+        Enter the Unity Catalog volume path in the format: <code style="background-color: #e0e0e0; padding: 0.2rem 0.5rem; border-radius: 3px;">catalog.schema.volume_name</code>
+    </p>
+    <p style="margin-top: 0.75rem; margin-bottom: 0.5rem; color: #004d40; font-weight: 500;">Examples:</p>
+    <ul style="margin: 0; color: #757575;">
+        <li><code style="background-color: #e0e0e0; padding: 0.2rem 0.5rem; border-radius: 3px;">main.default.my_volume</code></li>
+        <li><code style="background-color: #e0e0e0; padding: 0.2rem 0.5rem; border-radius: 3px;">users.jason_taylor.agent_app_uploads</code></li>
+        <li><code style="background-color: #e0e0e0; padding: 0.2rem 0.5rem; border-radius: 3px;">prod.data.raw_files</code></li>
+    </ul>
+</div>
+""", unsafe_allow_html=True)
 
 upload_volume_path = st.text_input(
     "Unity Catalog Volume Path",
@@ -171,26 +385,31 @@ elif not upload_volume_path:
 st.divider()
 st.header("📖 Instructions")
 
-with st.expander("How to use this app", expanded=False):
+with st.expander("📘 How to use this app", expanded=False):
     st.markdown("""
-    ### Step-by-Step Guide:
-    
-    1. **Select a File**: Click "Browse files" to choose a file from your local machine
-    2. **Enter Volume Path**: Specify the Unity Catalog volume path in the format `catalog.schema.volume_name`
-    3. **Optional Subfolder**: Add a subfolder path if you want to organize files
-    4. **Upload**: Click the "Upload File" button to start the upload
-    5. **Confirmation**: You'll see a success message when the upload completes
-    
-    ### Permissions Required:
-    
-    - READ permission on the specified Unity Catalog catalog and schema
-    - WRITE permission on the target volume
-    - USE CATALOG permission on the catalog
-    - USE SCHEMA permission on the schema
-    
-    ### Troubleshooting:
-    
-    - **Authentication Error**: Ensure you're logged into Databricks and have valid credentials
-    - **Permission Error**: Contact your Databricks administrator to grant volume write access
-    - **Path Not Found**: Verify the catalog, schema, and volume exist and the path is correct
-    """)
+    <div style="font-family: 'Roboto', sans-serif;">
+        <h3 style="color: #004d40; font-weight: 600; margin-top: 0;">Step-by-Step Guide</h3>
+        <ol style="color: #333333; line-height: 1.8;">
+            <li><strong style="color: #004d40;">Select a File:</strong> Click "Browse files" to choose a file from your local machine</li>
+            <li><strong style="color: #004d40;">Enter Volume Path:</strong> Specify the Unity Catalog volume path in the format <code>catalog.schema.volume_name</code></li>
+            <li><strong style="color: #004d40;">Optional Subfolder:</strong> Add a subfolder path if you want to organize files</li>
+            <li><strong style="color: #004d40;">Upload:</strong> Click the "Upload File" button to start the upload</li>
+            <li><strong style="color: #004d40;">Confirmation:</strong> You'll see a success message when the upload completes</li>
+        </ol>
+        
+        <h3 style="color: #004d40; font-weight: 600; margin-top: 2rem;">Permissions Required</h3>
+        <ul style="color: #333333; line-height: 1.8;">
+            <li>READ permission on the specified Unity Catalog catalog and schema</li>
+            <li>WRITE permission on the target volume</li>
+            <li>USE CATALOG permission on the catalog</li>
+            <li>USE SCHEMA permission on the schema</li>
+        </ul>
+        
+        <h3 style="color: #004d40; font-weight: 600; margin-top: 2rem;">Troubleshooting</h3>
+        <div style="background-color: #f5f5f5; padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
+            <p style="margin: 0.5rem 0;"><strong style="color: #004d40;">Authentication Error:</strong> <span style="color: #757575;">Ensure you're logged into Databricks and have valid credentials</span></p>
+            <p style="margin: 0.5rem 0;"><strong style="color: #004d40;">Permission Error:</strong> <span style="color: #757575;">Contact your Databricks administrator to grant volume write access</span></p>
+            <p style="margin: 0.5rem 0;"><strong style="color: #004d40;">Path Not Found:</strong> <span style="color: #757575;">Verify the catalog, schema, and volume exist and the path is correct</span></p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
