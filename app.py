@@ -1,6 +1,8 @@
 import streamlit as st
 import io
 import os
+import pandas as pd
+import json
 
 # Try to import Databricks SDK
 try:
@@ -11,7 +13,7 @@ except ImportError as e:
     DATABRICKS_SDK_AVAILABLE = False
     IMPORT_ERROR = str(e)
 
-# Try to import PySpark for OCR processing
+# Try to import PySpark for AI document parsing
 try:
     from pyspark.sql import SparkSession
     PYSPARK_AVAILABLE = True
@@ -251,46 +253,58 @@ def load_css():
 # Load custom styles
 load_css()
 
-# Initialize Spark Session for OCR
-@st.cache_resource
+# Initialize Spark Session for AI Parse Document
 def get_spark_session():
-    """Initialize and cache Spark session for OCR processing"""
+    """Get Spark session for AI document parsing"""
     if not PYSPARK_AVAILABLE:
-        return None
+        return None, "PySpark not available"
     try:
-        spark = SparkSession.builder \
-            .appName("PDF_OCR_App") \
-            .config("spark.jars.packages", "com.crealytics:spark-excel_2.12:0.13.7") \
-            .getOrCreate()
-        return spark
+        # In Databricks, get the existing Spark session
+        spark = SparkSession.builder.getOrCreate()
+        return spark, None
     except Exception as e:
-        st.error(f"Failed to initialize Spark session: {e}")
-        return None
+        return None, f"Failed to get Spark session: {e}"
 
-def perform_ocr(file_path):
-    """Perform OCR on uploaded file using com.stabrise.spark.pdf"""
+def parse_document_with_ai(file_path):
+    """Parse document using Databricks AI parse_document function"""
     try:
-        spark = get_spark_session()
+        spark, error = get_spark_session()
         if spark is None:
-            return None, "Spark session not available"
+            return None, error or "Spark session not available"
         
-        # Read PDF file with OCR using com.stabrise.spark.pdf
-        df = spark.read \
-            .format("com.crealytics.spark.excel") \
-            .option("header", "true") \
-            .option("inferSchema", "true") \
-            .load(file_path)
+        # Use Databricks AI parse_document function
+        # This function extracts text and structure from PDFs and images
+        query = f"""
+        SELECT 
+            ai_parse_document('{file_path}') as parsed_content
+        """
         
-        # For PDF files, use the pdf format
-        if file_path.lower().endswith('.pdf'):
-            df = spark.read \
-                .format("pdf") \
-                .option("ocr", "true") \
-                .load(file_path)
+        result_df = spark.sql(query)
         
-        # Convert to Pandas for display
-        pandas_df = df.toPandas()
-        return pandas_df, None
+        # Get the parsed content
+        parsed_result = result_df.collect()
+        
+        if parsed_result and len(parsed_result) > 0:
+            parsed_content = parsed_result[0]['parsed_content']
+            
+            # Convert parsed content to a structured format for display
+            # Try to parse as JSON if it's structured data
+            try:
+                if isinstance(parsed_content, str):
+                    # If it's plain text, create a simple dataframe
+                    lines = parsed_content.split('\n')
+                    df = pd.DataFrame({'Content': lines})
+                else:
+                    # If it's structured, convert to dataframe
+                    df = pd.DataFrame([parsed_content])
+                
+                return df, None
+            except:
+                # Fallback: return as single column dataframe
+                df = pd.DataFrame({'Parsed_Text': [str(parsed_content)]})
+                return df, None
+        else:
+            return None, "No content parsed from document"
         
     except Exception as e:
         return None, str(e)
@@ -418,44 +432,56 @@ if uploaded_file and upload_volume_path:
                         st.write(f"**Destination Path:** `{file_path}`")
                         st.write(f"**Volume:** {upload_volume_path}")
                     
-                    # OCR Processing Section
+                    # AI Document Parsing Section
                     st.divider()
-                    st.subheader("🔍 OCR Processing")
+                    st.subheader("🤖 AI Document Parsing")
                     
                     # Check if file is a PDF or image
                     file_extension = uploaded_file.name.lower().split('.')[-1]
-                    supported_ocr_formats = ['pdf', 'png', 'jpg', 'jpeg', 'tiff', 'bmp']
+                    supported_formats = ['pdf', 'png', 'jpg', 'jpeg', 'tiff', 'bmp']
                     
-                    if file_extension in supported_ocr_formats:
-                        with st.spinner("Performing OCR on uploaded file..."):
+                    if file_extension in supported_formats:
+                        with st.spinner("Parsing document with Databricks AI..."):
                             try:
-                                ocr_result, ocr_error = perform_ocr(file_path)
+                                parsed_result, parse_error = parse_document_with_ai(file_path)
                                 
-                                if ocr_error:
-                                    st.warning(f"⚠️ OCR processing encountered an issue: {ocr_error}")
-                                elif ocr_result is not None and not ocr_result.empty:
-                                    st.success("✅ OCR processing completed successfully!")
+                                if parse_error:
+                                    st.warning(f"⚠️ Document parsing encountered an issue: {parse_error}")
+                                    with st.expander("ℹ️ About AI Parse Document"):
+                                        st.markdown("""
+                                        <div style="font-family: 'Roboto', sans-serif; color: #333333;">
+                                            <p>This app uses Databricks' built-in <code style="background-color: #e0e0e0; padding: 0.2rem 0.5rem; border-radius: 3px;">ai_parse_document</code> function to extract text and structure from documents.</p>
+                                            <p style="margin-top: 1rem;"><strong style="color: #004d40;">Requirements:</strong></p>
+                                            <ul>
+                                                <li>Databricks Runtime with AI functions enabled</li>
+                                                <li>Access to Databricks AI/Foundation Model APIs</li>
+                                                <li>Appropriate permissions on the workspace</li>
+                                            </ul>
+                                        </div>
+                                        """, unsafe_allow_html=True)
+                                elif parsed_result is not None and not parsed_result.empty:
+                                    st.success("✅ Document parsed successfully with Databricks AI!")
                                     
-                                    # Display OCR results in a table
+                                    # Display parsed results in a table
                                     st.markdown("""
                                     <div style="margin-top: 1rem;">
-                                        <h3 style="color: #004d40; font-weight: 600;">📊 Extracted Data</h3>
+                                        <h3 style="color: #004d40; font-weight: 600;">📊 Extracted Content</h3>
                                     </div>
                                     """, unsafe_allow_html=True)
                                     
                                     # Show dataframe with custom styling
                                     st.dataframe(
-                                        ocr_result,
+                                        parsed_result,
                                         use_container_width=True,
                                         height=400
                                     )
                                     
                                     # Option to download results
-                                    csv = ocr_result.to_csv(index=False).encode('utf-8')
+                                    csv = parsed_result.to_csv(index=False).encode('utf-8')
                                     st.download_button(
-                                        label="📥 Download OCR Results as CSV",
+                                        label="📥 Download Parsed Results as CSV",
                                         data=csv,
-                                        file_name=f"ocr_results_{uploaded_file.name}.csv",
+                                        file_name=f"parsed_{uploaded_file.name}.csv",
                                         mime="text/csv",
                                     )
                                     
@@ -463,22 +489,22 @@ if uploaded_file and upload_volume_path:
                                     with st.expander("📈 Data Summary"):
                                         col1, col2, col3 = st.columns(3)
                                         with col1:
-                                            st.metric("Rows", ocr_result.shape[0])
+                                            st.metric("Rows", parsed_result.shape[0])
                                         with col2:
-                                            st.metric("Columns", ocr_result.shape[1])
+                                            st.metric("Columns", parsed_result.shape[1])
                                         with col3:
-                                            st.metric("Data Points", ocr_result.shape[0] * ocr_result.shape[1])
+                                            st.metric("Data Points", parsed_result.shape[0] * parsed_result.shape[1])
                                 else:
-                                    st.info("ℹ️ No data extracted from the file. The file may be empty or contain no readable text.")
+                                    st.info("ℹ️ No content extracted from the document. The file may be empty or contain no readable text.")
                                     
                             except Exception as e:
-                                st.error(f"❌ OCR processing failed: {e}")
+                                st.error(f"❌ Document parsing failed: {e}")
                                 with st.expander("🔍 Error Details"):
                                     st.write(f"**Error Type:** {type(e).__name__}")
                                     st.write(f"**Message:** {str(e)}")
-                                    st.write("**Tip:** Ensure the com.stabrise.spark.pdf library is properly configured in your Databricks cluster.")
+                                    st.write("**Tip:** Ensure you have access to Databricks AI functions and the workspace is properly configured.")
                     else:
-                        st.info(f"ℹ️ OCR is only available for PDF and image files. Uploaded file type: `.{file_extension}`")
+                        st.info(f"ℹ️ AI document parsing is available for PDF and image files. Uploaded file type: `.{file_extension}`")
                         
                 except Exception as e:
                     # Check if it's a DatabricksError
