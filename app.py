@@ -261,19 +261,11 @@ def parse_document_with_ai(file_path, workspace_client):
         if not warehouse_id:
             return None, "SQL Warehouse ID not configured. Please set DATABRICKS_WAREHOUSE_ID environment variable."
         
-        # Read the file content from Unity Catalog volume
-        try:
-            file_content = workspace_client.files.download(file_path).contents.read()
-        except Exception as e:
-            return None, f"Failed to read file from Unity Catalog: {e}"
-        
-        # Convert to base64 for SQL query (ai_parse_document expects binary)
-        file_content_b64 = base64.b64encode(file_content).decode('utf-8')
-        
         # Use Databricks AI parse_document function via SQL execution
-        # Pass the binary content using from_base64
+        # Use read_files to read the binary content directly from Unity Catalog volume
         query = f"""
-        SELECT ai_parse_document(from_base64('{file_content_b64}')) as parsed_content
+        SELECT ai_parse_document(content) as parsed_content
+        FROM read_files('{file_path}')
         """
         
         # Execute SQL query using the workspace client
