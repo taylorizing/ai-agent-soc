@@ -1,8 +1,15 @@
 import streamlit as st
 import pandas as pd
 import io
-from databricks.sdk import WorkspaceClient
-from databricks.sdk.core import DatabricksError
+
+# Try to import Databricks SDK
+try:
+    from databricks.sdk import WorkspaceClient
+    from databricks.sdk.core import DatabricksError
+    DATABRICKS_SDK_AVAILABLE = True
+except ImportError as e:
+    DATABRICKS_SDK_AVAILABLE = False
+    IMPORT_ERROR = str(e)
 
 # Page configuration
 st.set_page_config(
@@ -12,16 +19,27 @@ st.set_page_config(
 )
 
 # Initialize Databricks Workspace Client
-@st.cache_resource
 def get_workspace_client():
     """Initialize and cache the Databricks Workspace Client"""
+    if not DATABRICKS_SDK_AVAILABLE:
+        return None, f"Databricks SDK not available: {IMPORT_ERROR}"
+    
     try:
-        return WorkspaceClient()
+        return WorkspaceClient(), None
     except Exception as e:
-        st.error(f"Failed to initialize Databricks Workspace Client: {e}")
-        return None
-
-w = get_workspace_client()
+        return None, str(e)
+    
+# Try to initialize the workspace client
+try:
+    result = get_workspace_client()
+    if isinstance(result, tuple):
+        w, client_error = result
+    else:
+        w = result
+        client_error = None
+except Exception as e:
+    w = None
+    client_error = str(e)
 
 # Title and Description
 st.title("🚀 Databricks Unity Catalog File Upload")
@@ -29,6 +47,13 @@ st.markdown("""
 Upload files from your local machine to Unity Catalog volumes using the Databricks SDK.
 This app uses your current Databricks credentials to securely upload files.
 """)
+
+# Display client initialization status
+if w is None:
+    st.warning(f"⚠️ Workspace Client initialization warning: {client_error or 'Unknown error'}")
+    st.info("The app is running in limited mode. Some features may not work as expected.")
+else:
+    st.success("✅ Connected to Databricks Workspace")
 
 # Main Upload Section
 st.header("📁 Upload File to Unity Catalog Volume")
@@ -113,21 +138,23 @@ if uploaded_file and upload_volume_path:
                         st.write(f"**Destination Path:** `{file_path}`")
                         st.write(f"**Volume:** {upload_volume_path}")
                         
-                except DatabricksError as e:
-                    st.error(f"❌ Databricks Error: {e}")
-                    with st.expander("🔍 Error Details"):
-                        st.write(f"**Error Type:** DatabricksError")
-                        st.write(f"**Message:** {str(e)}")
-                        st.write("**Common Issues:**")
-                        st.write("- Check that the Unity Catalog volume exists")
-                        st.write("- Verify you have WRITE permissions on the volume")
-                        st.write("- Ensure the path format is correct: catalog.schema.volume_name")
-                        
                 except Exception as e:
-                    st.error(f"❌ Upload Failed: {e}")
-                    with st.expander("🔍 Error Details"):
-                        st.write(f"**Error Type:** {type(e).__name__}")
-                        st.write(f"**Message:** {str(e)}")
+                    # Check if it's a DatabricksError
+                    if DATABRICKS_SDK_AVAILABLE and type(e).__name__ == 'DatabricksError':
+                        st.error(f"❌ Databricks Error: {e}")
+                        with st.expander("🔍 Error Details"):
+                            st.write(f"**Error Type:** DatabricksError")
+                            st.write(f"**Message:** {str(e)}")
+                            st.write("**Common Issues:**")
+                            st.write("- Check that the Unity Catalog volume exists")
+                            st.write("- Verify you have WRITE permissions on the volume")
+                            st.write("- Ensure the path format is correct: catalog.schema.volume_name")
+                    else:
+                        # General error handling
+                        st.error(f"❌ Upload Failed: {e}")
+                        with st.expander("🔍 Error Details"):
+                            st.write(f"**Error Type:** {type(e).__name__}")
+                            st.write(f"**Message:** {str(e)}")
 
 elif not uploaded_file:
     st.warning("⚠️ Please select a file to upload")
