@@ -389,36 +389,3 @@ elif not uploaded_file:
     st.warning("⚠️ Please select a file to upload")
 elif not upload_volume_path:
     st.warning("⚠️ Please specify a Unity Catalog volume path")
-
-# Instructions Section
-st.divider()
-st.header("📖 Instructions")
-
-with st.expander("📘 How to use this app", expanded=False):
-    st.markdown("""
-    <div style="font-family: 'Roboto', sans-serif;">
-        <h3 style="color: #004d40; font-weight: 600; margin-top: 0;">Step-by-Step Guide</h3>
-        <ol style="color: #333333; line-height: 1.8;">
-            <li><strong style="color: #004d40;">Select a File:</strong> Click "Browse files" to choose a file from your local machine</li>
-            <li><strong style="color: #004d40;">Enter Volume Path:</strong> Specify the Unity Catalog volume path in the format <code>catalog.schema.volume_name</code></li>
-            <li><strong style="color: #004d40;">Optional Subfolder:</strong> Add a subfolder path if you want to organize files</li>
-            <li><strong style="color: #004d40;">Upload:</strong> Click the "Upload File" button to start the upload</li>
-            <li><strong style="color: #004d40;">Confirmation:</strong> You'll see a success message when the upload completes</li>
-        </ol>
-        
-        <h3 style="color: #004d40; font-weight: 600; margin-top: 2rem;">Permissions Required</h3>
-        <ul style="color: #333333; line-height: 1.8;">
-            <li>READ permission on the specified Unity Catalog catalog and schema</li>
-            <li>WRITE permission on the target volume</li>
-            <li>USE CATALOG permission on the catalog</li>
-            <li>USE SCHEMA permission on the schema</li>
-        </ul>
-        
-        <h3 style="color: #004d40; font-weight: 600; margin-top: 2rem;">Troubleshooting</h3>
-        <div style="background-color: #f5f5f5; padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
-            <p style="margin: 0.5rem 0;"><strong style="color: #004d40;">Authentication Error:</strong> <span style="color: #757575;">Ensure you're logged into Databricks and have valid credentials</span></p>
-            <p style="margin: 0.5rem 0;"><strong style="color: #004d40;">Permission Error:</strong> <span style="color: #757575;">Contact your Databricks administrator to grant volume write access</span></p>
-            <p style="margin: 0.5rem 0;"><strong style="color: #004d40;">Path Not Found:</strong> <span style="color: #757575;">Verify the catalog, schema, and volume exist and the path is correct</span></p>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
