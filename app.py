@@ -1,5 +1,6 @@
 import streamlit as st
 import io
+import os
 
 # Try to import Databricks SDK
 try:
@@ -16,6 +17,20 @@ st.set_page_config(
     page_icon="📁",
     layout="wide"
 )
+
+# Load and inject custom CSS from style_guide.css
+def load_css():
+    """Load custom CSS from style_guide.css file"""
+    css_file = os.path.join(os.path.dirname(__file__), "style_guide.css")
+    try:
+        with open(css_file, "r") as f:
+            css_content = f.read()
+        st.markdown(f"<style>{css_content}</style>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        pass  # Silently fail if CSS file not found
+
+# Load custom styles
+load_css()
 
 # Title and Description
 st.title("🚀 Databricks Unity Catalog File Upload")
