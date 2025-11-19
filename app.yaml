@@ -3,3 +3,9 @@ command: [
   "run",
   "app.py"
 ]
+
+env:
+  # Set your SQL Warehouse ID for AI document parsing
+  # Find this in Databricks SQL > SQL Warehouses > [Your Warehouse] > Configuration
+  - name: DATABRICKS_WAREHOUSE_ID
+    value: "YOUR_WAREHOUSE_ID_HERE"

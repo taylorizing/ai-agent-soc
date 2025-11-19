@@ -13,12 +13,7 @@ except ImportError as e:
     DATABRICKS_SDK_AVAILABLE = False
     IMPORT_ERROR = str(e)
 
-# Try to import PySpark for AI document parsing
-try:
-    from pyspark.sql import SparkSession
-    PYSPARK_AVAILABLE = True
-except ImportError:
-    PYSPARK_AVAILABLE = False
+# No longer need PySpark - using Databricks SDK SQL execution instead
 
 # Page configuration
 st.set_page_config(
@@ -253,58 +248,81 @@ def load_css():
 # Load custom styles
 load_css()
 
-# Initialize Spark Session for AI Parse Document
-def get_spark_session():
-    """Get Spark session for AI document parsing"""
-    if not PYSPARK_AVAILABLE:
-        return None, "PySpark not available"
+def parse_document_with_ai(file_path, workspace_client):
+    """Parse document using Databricks AI parse_document function via SQL Execution API"""
     try:
-        # In Databricks, get the existing Spark session
-        spark = SparkSession.builder.getOrCreate()
-        return spark, None
-    except Exception as e:
-        return None, f"Failed to get Spark session: {e}"
-
-def parse_document_with_ai(file_path):
-    """Parse document using Databricks AI parse_document function"""
-    try:
-        spark, error = get_spark_session()
-        if spark is None:
-            return None, error or "Spark session not available"
+        if not DATABRICKS_SDK_AVAILABLE:
+            return None, "Databricks SDK not available"
         
-        # Use Databricks AI parse_document function
-        # This function extracts text and structure from PDFs and images
+        # Get warehouse ID from environment or use default
+        # You can set this in your app configuration
+        warehouse_id = os.environ.get("DATABRICKS_WAREHOUSE_ID")
+        
+        if not warehouse_id:
+            return None, "SQL Warehouse ID not configured. Please set DATABRICKS_WAREHOUSE_ID environment variable."
+        
+        # Use Databricks AI parse_document function via SQL execution
         query = f"""
-        SELECT 
-            ai_parse_document('{file_path}') as parsed_content
+        SELECT ai_parse_document('{file_path}') as parsed_content
         """
         
-        result_df = spark.sql(query)
+        # Execute SQL query using the workspace client
+        from databricks.sdk.service.sql import StatementState
         
-        # Get the parsed content
-        parsed_result = result_df.collect()
+        statement = workspace_client.statement_execution.execute_statement(
+            warehouse_id=warehouse_id,
+            statement=query,
+            wait_timeout="30s"
+        )
         
-        if parsed_result and len(parsed_result) > 0:
-            parsed_content = parsed_result[0]['parsed_content']
-            
-            # Convert parsed content to a structured format for display
-            # Try to parse as JSON if it's structured data
-            try:
-                if isinstance(parsed_content, str):
-                    # If it's plain text, create a simple dataframe
-                    lines = parsed_content.split('\n')
-                    df = pd.DataFrame({'Content': lines})
-                else:
-                    # If it's structured, convert to dataframe
-                    df = pd.DataFrame([parsed_content])
+        # Wait for completion
+        if statement.status.state == StatementState.SUCCEEDED:
+            # Get the result
+            if statement.result and statement.result.data_array:
+                data = statement.result.data_array
                 
-                return df, None
-            except:
-                # Fallback: return as single column dataframe
-                df = pd.DataFrame({'Parsed_Text': [str(parsed_content)]})
-                return df, None
+                if data and len(data) > 0:
+                    # Extract parsed content from first row
+                    parsed_content = data[0][0] if data[0] else None
+                    
+                    if parsed_content:
+                        # Convert parsed content to a structured format for display
+                        try:
+                            if isinstance(parsed_content, str):
+                                # Try to parse as JSON first
+                                try:
+                                    parsed_json = json.loads(parsed_content)
+                                    # If it's a list of dicts, create dataframe
+                                    if isinstance(parsed_json, list):
+                                        df = pd.DataFrame(parsed_json)
+                                    elif isinstance(parsed_json, dict):
+                                        df = pd.DataFrame([parsed_json])
+                                    else:
+                                        # Plain text - split by lines
+                                        lines = parsed_content.split('\n')
+                                        df = pd.DataFrame({'Content': lines})
+                                except json.JSONDecodeError:
+                                    # Not JSON, treat as plain text
+                                    lines = parsed_content.split('\n')
+                                    df = pd.DataFrame({'Content': lines})
+                            else:
+                                # If it's already structured, convert to dataframe
+                                df = pd.DataFrame([parsed_content])
+                            
+                            return df, None
+                        except Exception as e:
+                            # Fallback: return as single column dataframe
+                            df = pd.DataFrame({'Parsed_Text': [str(parsed_content)]})
+                            return df, None
+                    else:
+                        return None, "No content returned from ai_parse_document"
+                else:
+                    return None, "No data returned from query"
+            else:
+                return None, "Query returned no results"
         else:
-            return None, "No content parsed from document"
+            error_msg = statement.status.error.message if statement.status.error else "Unknown error"
+            return None, f"SQL execution failed: {error_msg}"
         
     except Exception as e:
         return None, str(e)
@@ -323,11 +341,33 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Display SDK availability status
-if not DATABRICKS_SDK_AVAILABLE:
-    st.warning(f"⚠️ Databricks SDK not available: {IMPORT_ERROR}")
-    st.info("Please ensure databricks-sdk is installed: `pip install databricks-sdk`")
-else:
-    st.success("✅ Databricks SDK is available")
+warehouse_id = os.environ.get("DATABRICKS_WAREHOUSE_ID")
+
+col_status1, col_status2 = st.columns(2)
+
+with col_status1:
+    if not DATABRICKS_SDK_AVAILABLE:
+        st.warning(f"⚠️ Databricks SDK not available")
+    else:
+        st.success("✅ Databricks SDK is available")
+
+with col_status2:
+    if warehouse_id and warehouse_id != "YOUR_WAREHOUSE_ID_HERE":
+        st.success("✅ SQL Warehouse configured")
+    else:
+        st.warning("⚠️ SQL Warehouse not configured")
+        with st.expander("Configure SQL Warehouse"):
+            st.markdown("""
+            <div style="font-family: 'Roboto', sans-serif; color: #333333;">
+                <p>AI document parsing requires a SQL Warehouse ID to be configured.</p>
+                <p style="margin-top: 1rem;"><strong style="color: #004d40;">Setup:</strong></p>
+                <ol>
+                    <li>Set <code style="background-color: #e0e0e0; padding: 0.2rem 0.5rem; border-radius: 3px;">DATABRICKS_WAREHOUSE_ID</code> in your <code>app.yaml</code></li>
+                    <li>Find your Warehouse ID in Databricks SQL > SQL Warehouses</li>
+                    <li>Redeploy the app after updating the configuration</li>
+                </ol>
+            </div>
+            """, unsafe_allow_html=True)
 
 # Main Upload Section
 st.header("📁 Upload File to Unity Catalog Volume")
@@ -443,20 +483,27 @@ if uploaded_file and upload_volume_path:
                     if file_extension in supported_formats:
                         with st.spinner("Parsing document with Databricks AI..."):
                             try:
-                                parsed_result, parse_error = parse_document_with_ai(file_path)
+                                parsed_result, parse_error = parse_document_with_ai(file_path, w)
                                 
                                 if parse_error:
                                     st.warning(f"⚠️ Document parsing encountered an issue: {parse_error}")
-                                    with st.expander("ℹ️ About AI Parse Document"):
+                                    with st.expander("ℹ️ Setup Instructions"):
                                         st.markdown("""
                                         <div style="font-family: 'Roboto', sans-serif; color: #333333;">
                                             <p>This app uses Databricks' built-in <code style="background-color: #e0e0e0; padding: 0.2rem 0.5rem; border-radius: 3px;">ai_parse_document</code> function to extract text and structure from documents.</p>
                                             <p style="margin-top: 1rem;"><strong style="color: #004d40;">Requirements:</strong></p>
                                             <ul>
+                                                <li>A Databricks SQL Warehouse for query execution</li>
                                                 <li>Databricks Runtime with AI functions enabled</li>
                                                 <li>Access to Databricks AI/Foundation Model APIs</li>
-                                                <li>Appropriate permissions on the workspace</li>
+                                                <li>Environment variable <code style="background-color: #e0e0e0; padding: 0.2rem 0.5rem; border-radius: 3px;">DATABRICKS_WAREHOUSE_ID</code> must be set</li>
                                             </ul>
+                                            <p style="margin-top: 1rem;"><strong style="color: #004d40;">How to set the Warehouse ID:</strong></p>
+                                            <ol>
+                                                <li>Go to your Databricks SQL Warehouses</li>
+                                                <li>Copy the Warehouse ID from your SQL Warehouse</li>
+                                                <li>Set it as an environment variable in your app configuration</li>
+                                            </ol>
                                         </div>
                                         """, unsafe_allow_html=True)
                                 elif parsed_result is not None and not parsed_result.empty:
