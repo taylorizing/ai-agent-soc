@@ -18,29 +18,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Initialize Databricks Workspace Client
-def get_workspace_client():
-    """Initialize and cache the Databricks Workspace Client"""
-    if not DATABRICKS_SDK_AVAILABLE:
-        return None, f"Databricks SDK not available: {IMPORT_ERROR}"
-    
-    try:
-        return WorkspaceClient(), None
-    except Exception as e:
-        return None, str(e)
-    
-# Try to initialize the workspace client
-try:
-    result = get_workspace_client()
-    if isinstance(result, tuple):
-        w, client_error = result
-    else:
-        w = result
-        client_error = None
-except Exception as e:
-    w = None
-    client_error = str(e)
-
 # Title and Description
 st.title("🚀 Databricks Unity Catalog File Upload")
 st.markdown("""
@@ -48,12 +25,12 @@ Upload files from your local machine to Unity Catalog volumes using the Databric
 This app uses your current Databricks credentials to securely upload files.
 """)
 
-# Display client initialization status
-if w is None:
-    st.warning(f"⚠️ Workspace Client initialization warning: {client_error or 'Unknown error'}")
-    st.info("The app is running in limited mode. Some features may not work as expected.")
+# Display SDK availability status
+if not DATABRICKS_SDK_AVAILABLE:
+    st.warning(f"⚠️ Databricks SDK not available: {IMPORT_ERROR}")
+    st.info("Please ensure databricks-sdk is installed: `pip install databricks-sdk`")
 else:
-    st.success("✅ Connected to Databricks Workspace")
+    st.success("✅ Databricks SDK is available")
 
 # Main Upload Section
 st.header("📁 Upload File to Unity Catalog Volume")
@@ -115,11 +92,14 @@ if uploaded_file and upload_volume_path:
     
     # Upload button
     if st.button("🔼 Upload File", type="primary", use_container_width=True):
-        if w is None:
-            st.error("❌ Workspace client not initialized. Please check your Databricks credentials.")
+        if not DATABRICKS_SDK_AVAILABLE:
+            st.error("❌ Databricks SDK not available. Please install databricks-sdk.")
         else:
             with st.spinner(f"Uploading {uploaded_file.name}..."):
                 try:
+                    # Initialize workspace client only when needed
+                    w = WorkspaceClient()
+                    
                     # Read file content into BytesIO buffer
                     file_content = uploaded_file.read()
                     buffer = io.BytesIO(file_content)
