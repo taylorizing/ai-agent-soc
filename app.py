@@ -11,6 +11,13 @@ except ImportError as e:
     DATABRICKS_SDK_AVAILABLE = False
     IMPORT_ERROR = str(e)
 
+# Try to import PySpark for OCR processing
+try:
+    from pyspark.sql import SparkSession
+    PYSPARK_AVAILABLE = True
+except ImportError:
+    PYSPARK_AVAILABLE = False
+
 # Page configuration
 st.set_page_config(
     page_title="Unity Catalog File Upload",
@@ -244,6 +251,50 @@ def load_css():
 # Load custom styles
 load_css()
 
+# Initialize Spark Session for OCR
+@st.cache_resource
+def get_spark_session():
+    """Initialize and cache Spark session for OCR processing"""
+    if not PYSPARK_AVAILABLE:
+        return None
+    try:
+        spark = SparkSession.builder \
+            .appName("PDF_OCR_App") \
+            .config("spark.jars.packages", "com.crealytics:spark-excel_2.12:0.13.7") \
+            .getOrCreate()
+        return spark
+    except Exception as e:
+        st.error(f"Failed to initialize Spark session: {e}")
+        return None
+
+def perform_ocr(file_path):
+    """Perform OCR on uploaded file using com.stabrise.spark.pdf"""
+    try:
+        spark = get_spark_session()
+        if spark is None:
+            return None, "Spark session not available"
+        
+        # Read PDF file with OCR using com.stabrise.spark.pdf
+        df = spark.read \
+            .format("com.crealytics.spark.excel") \
+            .option("header", "true") \
+            .option("inferSchema", "true") \
+            .load(file_path)
+        
+        # For PDF files, use the pdf format
+        if file_path.lower().endswith('.pdf'):
+            df = spark.read \
+                .format("pdf") \
+                .option("ocr", "true") \
+                .load(file_path)
+        
+        # Convert to Pandas for display
+        pandas_df = df.toPandas()
+        return pandas_df, None
+        
+    except Exception as e:
+        return None, str(e)
+
 # Title and Description
 st.markdown("""
     <div style="margin-bottom: 2rem;">
@@ -366,6 +417,68 @@ if uploaded_file and upload_volume_path:
                         st.write(f"**File Size:** {len(file_content):,} bytes ({len(file_content) / 1024:.2f} KB)")
                         st.write(f"**Destination Path:** `{file_path}`")
                         st.write(f"**Volume:** {upload_volume_path}")
+                    
+                    # OCR Processing Section
+                    st.divider()
+                    st.subheader("🔍 OCR Processing")
+                    
+                    # Check if file is a PDF or image
+                    file_extension = uploaded_file.name.lower().split('.')[-1]
+                    supported_ocr_formats = ['pdf', 'png', 'jpg', 'jpeg', 'tiff', 'bmp']
+                    
+                    if file_extension in supported_ocr_formats:
+                        with st.spinner("Performing OCR on uploaded file..."):
+                            try:
+                                ocr_result, ocr_error = perform_ocr(file_path)
+                                
+                                if ocr_error:
+                                    st.warning(f"⚠️ OCR processing encountered an issue: {ocr_error}")
+                                elif ocr_result is not None and not ocr_result.empty:
+                                    st.success("✅ OCR processing completed successfully!")
+                                    
+                                    # Display OCR results in a table
+                                    st.markdown("""
+                                    <div style="margin-top: 1rem;">
+                                        <h3 style="color: #004d40; font-weight: 600;">📊 Extracted Data</h3>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    
+                                    # Show dataframe with custom styling
+                                    st.dataframe(
+                                        ocr_result,
+                                        use_container_width=True,
+                                        height=400
+                                    )
+                                    
+                                    # Option to download results
+                                    csv = ocr_result.to_csv(index=False).encode('utf-8')
+                                    st.download_button(
+                                        label="📥 Download OCR Results as CSV",
+                                        data=csv,
+                                        file_name=f"ocr_results_{uploaded_file.name}.csv",
+                                        mime="text/csv",
+                                    )
+                                    
+                                    # Display summary statistics
+                                    with st.expander("📈 Data Summary"):
+                                        col1, col2, col3 = st.columns(3)
+                                        with col1:
+                                            st.metric("Rows", ocr_result.shape[0])
+                                        with col2:
+                                            st.metric("Columns", ocr_result.shape[1])
+                                        with col3:
+                                            st.metric("Data Points", ocr_result.shape[0] * ocr_result.shape[1])
+                                else:
+                                    st.info("ℹ️ No data extracted from the file. The file may be empty or contain no readable text.")
+                                    
+                            except Exception as e:
+                                st.error(f"❌ OCR processing failed: {e}")
+                                with st.expander("🔍 Error Details"):
+                                    st.write(f"**Error Type:** {type(e).__name__}")
+                                    st.write(f"**Message:** {str(e)}")
+                                    st.write("**Tip:** Ensure the com.stabrise.spark.pdf library is properly configured in your Databricks cluster.")
+                    else:
+                        st.info(f"ℹ️ OCR is only available for PDF and image files. Uploaded file type: `.{file_extension}`")
                         
                 except Exception as e:
                     # Check if it's a DatabricksError
