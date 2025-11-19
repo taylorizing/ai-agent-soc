@@ -1,6 +1,7 @@
 command: [
-  "flask",
-  "--app",
+  "streamlit",
+  "run",
   "app.py",
-  "run"
+  "--server.port=8080",
+  "--server.address=0.0.0.0"
 ]
