@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 import io
 
 # Try to import Databricks SDK
@@ -180,20 +179,3 @@ with st.expander("How to use this app", expanded=False):
     - **Permission Error**: Contact your Databricks administrator to grant volume write access
     - **Path Not Found**: Verify the catalog, schema, and volume exist and the path is correct
     """)
-
-# Sample Data Visualization Section
-st.divider()
-st.header("📊 Sample Data Visualization")
-
-# Create sample data
-chart_data = pd.DataFrame({
-    'Day': [f'Day {x}' for x in range(1, 31)],
-    'Uploads': [2 ** (x * 0.3) for x in range(30)]
-})
-
-# Display chart
-st.line_chart(chart_data.set_index('Day'))
-
-# Display data table
-with st.expander("View Data Table"):
-    st.dataframe(chart_data, use_container_width=True)
