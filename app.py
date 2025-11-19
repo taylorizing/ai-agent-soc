@@ -105,7 +105,7 @@ if uploaded_file and upload_volume_path:
                     buffer = io.BytesIO(file_content)
                     
                     # Upload to Unity Catalog volume using Databricks SDK
-                    w.files.upload(path=file_path, contents=buffer, overwrite=True)
+                    w.files.upload(file_path=file_path, contents=buffer, overwrite=True)
                     
                     # Success message
                     st.success(f"✅ File successfully uploaded to Unity Catalog!")
