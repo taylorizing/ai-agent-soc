@@ -70,27 +70,36 @@ def load_css():
             line-height: 1.6;
         }
         
-        /* Buttons - CLA teal primary button */
+        /* Buttons - CLA orange action button (matching insights page) */
         .stButton > button {
-            background-color: #004d40 !important;
+            background-color: #FF6B35 !important;
             color: #ffffff !important;
             border: none !important;
             padding: 0.75rem 2rem !important;
             font-size: 1rem !important;
             font-weight: 500 !important;
             border-radius: 4px !important;
-            transition: background-color 0.3s ease !important;
+            transition: all 0.3s ease !important;
             font-family: 'Roboto', sans-serif !important;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         
         .stButton > button:hover {
-            background-color: #00332e !important;
+            background-color: #E55A28 !important;
             border: none !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(255, 107, 53, 0.3) !important;
         }
         
         .stButton > button:focus {
-            background-color: #00332e !important;
-            box-shadow: 0 0 0 0.2rem rgba(0, 77, 64, 0.5) !important;
+            background-color: #E55A28 !important;
+            box-shadow: 0 0 0 0.2rem rgba(255, 107, 53, 0.3) !important;
+        }
+        
+        .stButton > button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3) !important;
         }
         
         /* File uploader */
